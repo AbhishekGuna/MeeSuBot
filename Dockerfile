@@ -34,4 +34,4 @@ ENV PATH=/root/.local/bin:$PATH \
 COPY . .
 
 # Run the bot
-CMD ["python", "-m", "__main__"]
+CMD ["python", "__main__.py"]
