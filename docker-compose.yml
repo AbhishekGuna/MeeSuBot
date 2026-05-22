@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  meesubot:
+    build: .
+    container_name: meesubot
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: meesubot_db
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=${DB_NAME:-meesubot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
