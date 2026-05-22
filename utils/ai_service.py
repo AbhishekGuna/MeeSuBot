@@ -10,6 +10,7 @@ async def get_ai_response(text):
         model=GEMINI_MODEL,
         contents=text
     )
-
     return response.text
 
+def get_ai_client():
+    return client
