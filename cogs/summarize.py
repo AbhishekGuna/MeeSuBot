@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import asyncio
 import time
 import json
 from config import DISCORD_MESSAGE_LIMIT, GEMINI_MODEL
@@ -27,9 +28,12 @@ class Summarize(commands.Cog):
             file_content = await file.read()
             text = await process_file_content(file.filename, file_content, self.client)
 
-            summary_response = self.client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=f"""You are an expert meeting analyst. Analyze the following meeting transcript and extract structured information.
+            loop = asyncio.get_event_loop()
+            summary_response = await loop.run_in_executor(
+                None,
+                lambda: self.client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=f"""You are an expert meeting analyst. Analyze the following meeting transcript and extract structured information.
 
                 Return your response as a valid JSON object with exactly these keys:
 
@@ -63,6 +67,7 @@ class Summarize(commands.Cog):
 
                 TRANSCRIPT:
                 {text}"""
+                )
             )
 
             result = json.loads(summary_response.text)

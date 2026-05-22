@@ -22,6 +22,8 @@ SUMMARY_CHARACTER_LIMIT = 2000
 # Supported file types
 SUPPORTED_FILE_TYPES = {".mp3", ".mp4", ".wav", ".txt"}
 
+HISTORY_LIMIT = 5
+
 # Optional: set this to your server (guild) ID for instant slash-command updates
 # (global command updates can take up to ~1 hour to propagate)
 # DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID")
