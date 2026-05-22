@@ -4,6 +4,7 @@ import asyncio
 import discord.ext.commands as commands
 from config import DISCORD_TOKEN, COMMAND_PREFIX
 from db.connection import connect_db, close_db
+from db.summaries import init_db
 
 class MeeSuBot(commands.Bot):
     def __init__(self):
@@ -28,6 +29,7 @@ class MeeSuBot(commands.Bot):
 
         try:
             await connect_db()
+            await init_db()
         except Exception as e:
             print(f"Failed to connect to the database: {e}")
             await self.close()

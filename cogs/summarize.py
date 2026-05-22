@@ -4,6 +4,7 @@ import time
 import json
 from config import DISCORD_MESSAGE_LIMIT, GEMINI_MODEL
 from utils import get_ai_client, validate_file, process_file_content
+from db.summaries import save_summary
 
 cogs_list = ["summarize"]
 
@@ -95,6 +96,16 @@ class Summarize(commands.Cog):
 
 
             await ctx.send(embed=embed)
+
+            # --- persist to DB ---
+            await save_summary(
+                guild_id=ctx.guild.id,
+                channel_id=ctx.channel.id,
+                user_id=ctx.author.id,
+                filename=file.filename,
+                result=result,
+            )
+
         except Exception as e:
             await ctx.send(f"An error occurred while processing the file: {e}", ephemeral=True)
 
