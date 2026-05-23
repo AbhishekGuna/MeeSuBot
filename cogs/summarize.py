@@ -6,6 +6,7 @@ import json
 from config import DISCORD_MESSAGE_LIMIT, GEMINI_MODEL
 from utils import get_ai_client, validate_file, process_file_content
 from db.summaries import save_summary
+from utils.duration import estimate_duration_seconds
 
 cogs_list = ["summarize"]
 
@@ -103,12 +104,14 @@ class Summarize(commands.Cog):
             await ctx.send(embed=embed)
 
             # --- persist to DB ---
+            duration = estimate_duration_seconds(file.filename, file.size)
             await save_summary(
                 guild_id=ctx.guild.id,
                 channel_id=ctx.channel.id,
                 user_id=ctx.author.id,
                 filename=file.filename,
                 result=result,
+                duration_seconds=duration,
             )
 
         except Exception as e:

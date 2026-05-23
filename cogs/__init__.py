@@ -1,1 +1,1 @@
-__all__ = ["utilities", "askgemini", "summarize", "history"]
+__all__ = ["utilities", "askgemini", "summarize", "history", "stats"]
