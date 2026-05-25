@@ -6,6 +6,7 @@ Functions
 save_summary        — persist one summary row linked to guild + channel
 get_guild_summaries — fetch recent summaries for a guild (optional channel filter)
 get_guild_stats     — aggregate stats (total meetings, total audio hours) for a guild
+search_summaries    — full-text search across summaries for a guild
 init_db             — create tables if they don't exist yet
 """
 
@@ -52,6 +53,19 @@ async def init_db() -> None:
         # Step 3: indexes (IF NOT EXISTS is safe to re-run)
         "CREATE INDEX IF NOT EXISTS idx_summaries_guild_id   ON summaries (guild_id,   created_at DESC);",
         "CREATE INDEX IF NOT EXISTS idx_summaries_channel_id ON summaries (channel_id, created_at DESC);",
+
+        # Step 4: GIN index for full-text search over tldr + topics + decisions + actions
+        """
+        CREATE INDEX IF NOT EXISTS idx_summaries_fts ON summaries
+        USING GIN (
+            to_tsvector('english',
+                COALESCE(tldr, '') || ' ' ||
+                COALESCE(topics::text, '') || ' ' ||
+                COALESCE(key_decisions::text, '') || ' ' ||
+                COALESCE(action_items::text, '')
+            )
+        );
+        """,
     ]
 
     async with _pool.acquire() as conn:
@@ -172,3 +186,73 @@ async def get_guild_stats(guild_id: int) -> dict:
         "total_seconds": float(row["total_seconds"]),
         "timed_meetings": int(row["timed_meetings"]),
     }
+
+
+# --------------------------------------------------------------------- #
+# Full-text search                                                       #
+# --------------------------------------------------------------------- #
+
+async def search_summaries(
+    guild_id: int,
+    query: str,
+    *,
+    topic: str | None = None,
+    limit: int = 10,
+) -> list[SummaryRecord]:
+    """
+    Full-text search over meeting summaries for a guild.
+
+    Parameters
+    ----------
+    guild_id:
+        Discord guild snowflake ID to scope the search to.
+    query:
+        Free-text search string (e.g. ``"budget approval"``).  Passed
+        through PostgreSQL's ``plainto_tsquery`` so it's safe from SQL
+        injection and handles multi-word phrases naturally.
+    topic:
+        Optional topic filter — an additional ``ILIKE`` filter applied
+        against the ``topics`` JSON column text representation.
+    limit:
+        Maximum number of results to return (default 10).
+
+    Returns
+    -------
+    list[SummaryRecord]
+        Matching records ordered by relevance (ts_rank) then recency.
+    """
+    # Build the document vector the same way as the GIN index
+    fts_expr = """
+        to_tsvector('english',
+            COALESCE(tldr, '') || ' ' ||
+            COALESCE(topics::text, '') || ' ' ||
+            COALESCE(key_decisions::text, '') || ' ' ||
+            COALESCE(action_items::text, '')
+        )
+    """
+
+    if topic:
+        sql = f"""
+            SELECT *,
+                   ts_rank({fts_expr}, plainto_tsquery('english', $2)) AS rank
+            FROM summaries
+            WHERE guild_id = $1
+              AND {fts_expr} @@ plainto_tsquery('english', $2)
+              AND topics::text ILIKE $3
+            ORDER BY rank DESC, created_at DESC
+            LIMIT $4
+        """
+        rows = await execute_query(sql, guild_id, query, f"%{topic}%", limit)
+    else:
+        sql = f"""
+            SELECT *,
+                   ts_rank({fts_expr}, plainto_tsquery('english', $2)) AS rank
+            FROM summaries
+            WHERE guild_id = $1
+              AND {fts_expr} @@ plainto_tsquery('english', $2)
+            ORDER BY rank DESC, created_at DESC
+            LIMIT $3
+        """
+        rows = await execute_query(sql, guild_id, query, limit)
+
+    return [SummaryRecord.from_row(r) for r in rows]
