@@ -13,13 +13,12 @@ token usage bounded.  If no summaries exist the command tells the user
 gracefully instead of hallucinating.
 """
 
-import asyncio
 import textwrap
 
 import discord
 from discord.ext import commands
 
-from config import DISCORD_MESSAGE_LIMIT, GEMINI_MODEL
+from config import GEMINI_MODEL
 from db.summaries import get_guild_summaries
 from models.summary import SummaryRecord
 from utils import get_ai_client
@@ -134,15 +133,11 @@ class Ask(commands.Cog):
             f"Question: {question}"
         )
 
-        # 3. Ask the model (blocking SDK call → run in executor)
-        loop = asyncio.get_event_loop()
+        # 3. Ask the model (native async — no thread overhead)
         try:
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=prompt,
-                ),
+            response = await self.client.aio.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
             )
         except Exception as exc:
             await ctx.send(
